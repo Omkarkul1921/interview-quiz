@@ -6,7 +6,8 @@ class GitHubStorage {
         this.baseUrl = `https://api.github.com/repos/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/contents/results`;
         this.headers = {
             'Authorization': `token ${GITHUB_CONFIG.token}`,
-            'Accept': 'application/vnd.github.v3+json'
+            'Accept': 'application/vnd.github.v3+json',
+             "Content-Type": "application/json"
         };
     }
 
@@ -50,7 +51,7 @@ class GitHubStorage {
             const filename = `result-${Date.now()}-${resultData.email.replace(/[^a-zA-Z0-9]/g, '_')}.json`;
             const content = btoa(unescape(encodeURIComponent(JSON.stringify(resultData, null, 2))));
 
-            const response = await fetch(`${this.baseUrl}/${filename}`, {
+            const response = await fetch(`https://api.github.com/repos/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/contents/${filename}`, {
                 method: 'PUT',
                 headers: this.headers,
                 body: JSON.stringify({
