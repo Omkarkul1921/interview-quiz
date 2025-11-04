@@ -5,7 +5,7 @@ class GitHubStorage {
     constructor() {
         this.baseUrl = `https://api.github.com/repos/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/contents/results;
         this.headers = {
-            'Authorization': `token ${GITHUB_CONFIG.token}`,
+             'Authorization': `token ${GITHUB_CONFIG.token}`,
             'Accept': 'application/vnd.github.v3+json'
         };
     }
