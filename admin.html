@@ -29,18 +29,18 @@
         .badge-success { background: #d1fae5; color: #065f46; }
         .badge-danger { background: #fee2e2; color: #991b1b; }
         .hidden { display: none; }
+        .loading { background: #eff6ff; border: 1px solid #bfdbfe; color: #1e40af; padding: 12px; border-radius: 8px; margin-bottom: 16px; text-align: center; }
+        .spinner { border: 3px solid #f3f4f6; border-top: 3px solid #667eea; border-radius: 50%; width: 24px; height: 24px; animation: spin 1s linear infinite; display: inline-block; margin-right: 8px; vertical-align: middle; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         @media print { .no-print { display: none !important; } }
     </style>
 </head>
 <body>
     <div id="app"></div>
 
+    <script src="config.js"></script>
+    <script src="storage.js"></script>
     <script>
-        // ========================================
-        // SET ADMIN PASSWORD HERE
-        // ========================================
-        const ADMIN_PASSWORD = "admin123";  // CHANGE THIS!
-
         class AdminDashboard {
             constructor() {
                 this.state = {
@@ -48,7 +48,9 @@
                     password: '',
                     results: [],
                     filter: 'all',
-                    search: ''
+                    search: '',
+                    loading: false,
+                    loadingMessage: ''
                 };
                 this.render();
             }
@@ -69,12 +71,13 @@
             }
 
             logout() {
-                this.setState({ authenticated: false, password: '' });
+                this.setState({ authenticated: false, password: '', results: [] });
             }
 
-            loadResults() {
-                const results = JSON.parse(localStorage.getItem('quizResults') || '[]');
-                this.setState({ results: results.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)) });
+            async loadResults() {
+                this.setState({ loading: true, loadingMessage: 'Loading results from GitHub...' });
+                const results = await storage.getAllResults();
+                this.setState({ results, loading: false, loadingMessage: '' });
             }
 
             getStats() {
@@ -102,10 +105,11 @@
                 a.click();
             }
 
-            clearAll() {
-                if (confirm('Delete ALL results? This cannot be undone!')) {
-                    localStorage.removeItem('quizResults');
-                    this.setState({ results: [] });
+            async clearAll() {
+                if (confirm('Delete ALL results from GitHub? This cannot be undone!')) {
+                    this.setState({ loading: true, loadingMessage: 'Deleting all results...' });
+                    await storage.deleteAllResults();
+                    this.setState({ results: [], loading: false, loadingMessage: '' });
                 }
             }
 
@@ -159,14 +163,19 @@
                             <div style="display: flex; justify-content: space-between; align-items: center;">
                                 <div>
                                     <h1 style="font-size: 28px; margin-bottom: 4px;">Admin Dashboard</h1>
-                                    <p style="opacity: 0.9;">Quiz Results Management</p>
+                                    <p style="opacity: 0.9;">Quiz Results Management (GitHub Storage)</p>
                                 </div>
-                                <button class="btn" style="background: rgba(255,255,255,0.2); color: white;" onclick="admin.logout()">Logout</button>
+                                <div>
+                                    <button class="btn" style="background: rgba(255,255,255,0.2); color: white; margin-right: 8px;" onclick="admin.loadResults()">🔄 Refresh</button>
+                                    <button class="btn" style="background: rgba(255,255,255,0.2); color: white;" onclick="admin.logout()">Logout</button>
+                                </div>
                             </div>
                         </div>
                     </div>
 
                     <div class="container">
+                        ${this.state.loading ? `<div class="loading"><div class="spinner"></div>${this.state.loadingMessage}</div>` : ''}
+
                         <div class="stats-grid no-print">
                             <div class="stat-card">
                                 <div class="stat-icon" style="background: #dbeafe;">👥</div>
@@ -226,7 +235,9 @@
                                     <tbody>
                                         ${filtered.length === 0 ? `
                                             <tr>
-                                                <td colspan="8" style="text-align: center; color: #6b7280; padding: 40px;">No results found</td>
+                                                <td colspan="8" style="text-align: center; color: #6b7280; padding: 40px;">
+                                                    ${this.state.results.length === 0 ? 'No results yet. Click "Refresh" to load data.' : 'No results match your search.'}
+                                                </td>
                                             </tr>
                                         ` : filtered.map((r, i) => `
                                             <tr>
