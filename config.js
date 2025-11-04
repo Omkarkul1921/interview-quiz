@@ -4,7 +4,7 @@
 const GITHUB_CONFIG = {
     owner: "Omkarkul1921",        // Change this to your GitHub username
     repo: "interview-quiz",               // Your repository name
-    token: "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",
+    token: "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",
     branch: "main"
 };
 
