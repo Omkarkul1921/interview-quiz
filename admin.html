@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - Quiz Results</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body>
+    <div id="root"></div>
+    <script type="text/babel">
+       import React, { useState, useEffect } from 'react';
+import { Lock, Download, Users, TrendingUp, CheckCircle, XCircle, Clock, Printer, Eye, EyeOff, LogOut } from 'lucide-react';
+
+// ========================================
+// SET ADMIN PASSWORD HERE
+// ========================================
+const ADMIN_PASSWORD = "admin123"; // Change this to your desired password
+
+export default function AdminDashboard() {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [results, setResults] = useState([]);
+  const [showPassword, setShowPassword] = useState(false);
+  const [filterStatus, setFilterStatus] = useState('all'); // all, passed, failed
+  const [searchTerm, setSearchTerm] = useState('');
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      loadResults();
+    }
+  }, [isAuthenticated]);
+
+  const loadResults = () => {
+    const allResults = JSON.parse(localStorage.getItem('quizResults') || '[]');
+    setResults(allResults.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)));
+  };
+
+  const handleLogin = (e) => {
+    e.preventDefault();
+    if (password === ADMIN_PASSWORD) {
+      setIsAuthenticated(true);
+      setError('');
+    } else {
+      setError('Incorrect password');
+      setPassword('');
+    }
+  };
+
+  const handleLogout = () => {
+    setIsAuthenticated(false);
+    setPassword('');
+  };
+
+  const calculateStats = () => {
+    const total = results.length;
+    const passed = results.filter(r => r.score >= 70).length;
+    const failed = total - passed;
+    const avgScore = total > 0 ? Math.round(results.reduce((sum, r) => sum + r.score, 0) / total) : 0;
+    
+    return { total, passed, failed, avgScore };
+  };
+
+  const exportToCSV = () => {
+    const headers = ['Name', 'Email', 'Score (%)', 'Correct', 'Total', 'Status', 'Time Taken (s)', 'Date', 'Time'];
+    const csvData = results.map(r => [
+      r.name,
+      r.email,
+      r.score,
+      r.correct,
+      r.total,
+      r.score >= 70 ? 'PASSED' : 'FAILED',
+      r.timeTaken,
+      r.date,
+      r.time
+    ]);
+
+    const csv = [
+      headers.join(','),
+      ...csvData.map(row => row.map(cell => `"${cell}"`).join(','))
+    ].join('\n');
+
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `quiz-results-${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+  };
+
+  const handlePrint = () => {
+    window.print();
+  };
+
+  const clearAllResults = () => {
+    if (window.confirm('Are you sure you want to delete ALL results? This action cannot be undone.')) {
+      localStorage.removeItem('quizResults');
+      setResults([]);
+      alert('All results have been cleared.');
+    }
+  };
+
+  const filteredResults = results.filter(r => {
+    const matchesSearch = r.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                          r.email.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    if (filterStatus === 'passed') return matchesSearch && r.score >= 70;
+    if (filterStatus === 'failed') return matchesSearch && r.score < 70;
+    return matchesSearch;
+  });
+
+  // Login Screen
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full">
+          <div className="text-center mb-8">
+            <div className="bg-purple-100 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Lock className="w-10 h-10 text-purple-600" />
+            </div>
+            <h1 className="text-3xl font-bold text-gray-800 mb-2">Admin Access</h1>
+            <p className="text-gray-600">Enter password to view quiz results</p>
+          </div>
+
+          <form onSubmit={handleLogin} className="space-y-4">
+            {error && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm text-center">
+                {error}
+              </div>
+            )}
+            
+            <div className="relative">
+              <input
+                type={showPassword ? "text" : "password"}
+                placeholder="Admin Password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                required
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+              >
+                {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+              </button>
+            </div>
+
+            <button
+              type="submit"
+              className="w-full bg-purple-600 text-white py-3 rounded-lg font-semibold hover:bg-purple-700 transition-colors"
+            >
+              Login
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
+  // Dashboard
+  const stats = calculateStats();
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      {/* Print Styles */}
+      <style>{`
+        @media print {
+          .no-print { display: none !important; }
+          .print-only { display: block !important; }
+          body { background: white !important; }
+        }
+        .print-only { display: none; }
+      `}</style>
+
+      {/* Header */}
+      <div className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-lg no-print">
+        <div className="max-w-7xl mx-auto px-4 py-6">
+          <div className="flex justify-between items-center">
+            <div>
+              <h1 className="text-3xl font-bold mb-1">Admin Dashboard</h1>
+              <p className="text-purple-100">Quiz Results Management</p>
+            </div>
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-2 bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg transition-colors"
+            >
+              <LogOut className="w-5 h-5" />
+              Logout
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-7xl mx-auto px-4 py-8">
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8 no-print">
+          <div className="bg-white rounded-xl shadow-md p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-gray-500 text-sm font-medium">Total Candidates</p>
+                <p className="text-3xl font-bold text-gray-800 mt-1">{stats.total}</p>
+              </div>
+              <div className="bg-blue-100 p-3 rounded-lg">
+                <Users className="w-8 h-8 text-blue-600" />
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl shadow-md p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-gray-500 text-sm font-medium">Passed</p>
+                <p className="text-3xl font-bold text-green-600 mt-1">{stats.passed}</p>
+              </div>
+              <div className="bg-green-100 p-3 rounded-lg">
+                <CheckCircle className="w-8 h-8 text-green-600" />
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl shadow-md p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-gray-500 text-sm font-medium">Failed</p>
+                <p className="text-3xl font-bold text-red-600 mt-1">{stats.failed}</p>
+              </div>
+              <div className="bg-red-100 p-3 rounded-lg">
+                <XCircle className="w-8 h-8 text-red-600" />
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl shadow-md p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-gray-500 text-sm font-medium">Avg Score</p>
+                <p className="text-3xl font-bold text-purple-600 mt-1">{stats.avgScore}%</p>
+              </div>
+              <div className="bg-purple-100 p-3 rounded-lg">
+                <TrendingUp className="w-8 h-8 text-purple-600" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Controls */}
+        <div className="bg-white rounded-xl shadow-md p-6 mb-6 no-print">
+          <div className="flex flex-wrap gap-4 items-center justify-between">
+            <div className="flex flex-wrap gap-3">
+              <button
+                onClick={exportToCSV}
+                className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
+              >
+                <Download className="w-5 h-5" />
+                Export CSV
+              </button>
+              <button
+                onClick={handlePrint}
+                className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                <Printer className="w-5 h-5" />
+                Print
+              </button>
+              <button
+                onClick={clearAllResults}
+                className="flex items-center gap-2 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors"
+              >
+                Clear All
+              </button>
+            </div>
+
+            <div className="flex flex-wrap gap-3">
+              <select
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
+                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+              >
+                <option value="all">All Results</option>
+                <option value="passed">Passed Only</option>
+                <option value="failed">Failed Only</option>
+              </select>
+
+              <input
+                type="text"
+                placeholder="Search by name or email..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent min-w-[250px]"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Print Header */}
+        <div className="print-only mb-6">
+          <h1 className="text-2xl font-bold text-gray-800 mb-2">Quiz Results Report</h1>
+          <p className="text-gray-600">Generated on: {new Date().toLocaleString()}</p>
+          <p className="text-gray-600">Total Candidates: {stats.total} | Passed: {stats.passed} | Failed: {stats.failed} | Avg Score: {stats.avgScore}%</p>
+          <hr className="my-4" />
+        </div>
+
+        {/* Results Table */}
+        <div className="bg-white rounded-xl shadow-md overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50 border-b border-gray-200">
+                <tr>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                    #
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                    Name
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                    Email
+                  </th>
+                  <th className="px-6 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                    Score
+                  </th>
+                  <th className="px-6 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                    Correct
+                  </th>
+                  <th className="px-6 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                    Status
+                  </th>
+                  <th className="px-6 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                    Time (s)
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                    Date & Time
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {filteredResults.length === 0 ? (
+                  <tr>
+                    <td colSpan="8" className="px-6 py-8 text-center text-gray-500">
+                      No results found
+                    </td>
+                  </tr>
+                ) : (
+                  filteredResults.map((result, index) => (
+                    <tr key={index} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-6 py-4 text-sm text-gray-600">
+                        {index + 1}
+                      </td>
+                      <td className="px-6 py-4 text-sm font-medium text-gray-800">
+                        {result.name}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-600">
+                        {result.email}
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                        <span className={`text-lg font-bold ${
+                          result.score >= 70 ? 'text-green-600' : 'text-red-600'
+                        }`}>
+                          {result.score}%
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-center text-sm text-gray-600">
+                        {result.correct}/{result.total}
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                          result.score >= 70
+                            ? 'bg-green-100 text-green-700'
+                            : 'bg-red-100 text-red-700'
+                        }`}>
+                          {result.score >= 70 ? 'PASSED' : 'FAILED'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-center text-sm text-gray-600">
+                        <div className="flex items-center justify-center gap-1">
+                          <Clock className="w-4 h-4" />
+                          {result.timeTaken}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-600">
+                        <div>{result.date}</div>
+                        <div className="text-xs text-gray-500">{result.time}</div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {filteredResults.length > 0 && (
+          <div className="mt-4 text-center text-sm text-gray-600">
+            Showing {filteredResults.length} of {results.length} results
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+    </script>
+</body>
+</html>
