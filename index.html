@@ -12,8 +12,8 @@
 <body>
     <div id="root"></div>
     <script type="text/babel">
-       import React, { useState, useEffect } from 'react';
-import { Clock, CheckCircle, XCircle, Award } from 'lucide-react';
+      import React, { useState, useEffect } from 'react';
+import { Clock, CheckCircle, XCircle, Award, AlertCircle } from 'lucide-react';
 
 // ========================================
 // EDIT YOUR QUESTIONS HERE
@@ -63,7 +63,6 @@ const QUIZ_CONFIG = {
       options: ["O(n)", "O(log n)", "O(n²)", "O(1)"],
       correctAnswer: 1
     },
-    // Add more questions here (up to 50)
     {
       id: 6,
       question: "Which HTTP method is used to retrieve data?",
@@ -118,10 +117,30 @@ export default function QuizApp() {
   const [candidateName, setCandidateName] = useState('');
   const [candidateEmail, setCandidateEmail] = useState('');
   const [startTime, setStartTime] = useState(null);
+  const [errorMessage, setErrorMessage] = useState('');
 
   const currentQuestion = QUIZ_CONFIG.questions[currentQuestionIndex];
   const totalQuestions = QUIZ_CONFIG.questions.length;
   const progress = ((currentQuestionIndex + 1) / totalQuestions) * 100;
+
+  // Check if user has already taken the quiz
+  useEffect(() => {
+    checkIfAlreadyTaken();
+  }, [candidateEmail]);
+
+  const checkIfAlreadyTaken = () => {
+    if (!candidateEmail.trim()) return;
+    
+    const allResults = JSON.parse(localStorage.getItem('quizResults') || '[]');
+    const existingResult = allResults.find(r => r.email.toLowerCase() === candidateEmail.toLowerCase());
+    
+    if (existingResult) {
+      setErrorMessage('This email has already been used to take the quiz.');
+      return true;
+    }
+    setErrorMessage('');
+    return false;
+  };
 
   // Timer effect
   useEffect(() => {
@@ -140,11 +159,34 @@ export default function QuizApp() {
     return () => clearInterval(timer);
   }, [quizState, currentQuestionIndex]);
 
+  const validateEmail = (email) => {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  };
+
   const handleStartQuiz = () => {
+    // Validate name
     if (!candidateName.trim()) {
-      alert('Please enter your name');
+      setErrorMessage('Please enter your name');
       return;
     }
+
+    // Validate email
+    if (!candidateEmail.trim()) {
+      setErrorMessage('Please enter your email');
+      return;
+    }
+
+    if (!validateEmail(candidateEmail)) {
+      setErrorMessage('Please enter a valid email address');
+      return;
+    }
+
+    // Check if already taken
+    if (checkIfAlreadyTaken()) {
+      return;
+    }
+
+    setErrorMessage('');
     setStartTime(new Date());
     setQuizState('quiz');
   };
@@ -194,15 +236,16 @@ export default function QuizApp() {
       total: results.total,
       timeTaken: timeTaken,
       timestamp: endTime.toISOString(),
+      date: endTime.toLocaleDateString(),
+      time: endTime.toLocaleTimeString(),
       answers: answers
     };
 
-    // Save to localStorage for tracking
+    // Save to localStorage
     const allResults = JSON.parse(localStorage.getItem('quizResults') || '[]');
     allResults.push(resultData);
     localStorage.setItem('quizResults', JSON.stringify(allResults));
 
-    // Log to console (you can send this to a server)
     console.log('Quiz Result:', resultData);
   };
 
@@ -228,25 +271,40 @@ export default function QuizApp() {
                 <li>• Auto-advance when time expires</li>
                 <li>• No going back to previous questions</li>
                 <li>• Passing score: {QUIZ_CONFIG.passingScore}%</li>
+                <li>• You can only take this quiz once</li>
               </ul>
             </div>
           </div>
 
+          {errorMessage && (
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2">
+              <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+              <p className="text-sm text-red-700">{errorMessage}</p>
+            </div>
+          )}
+
           <div className="space-y-4">
-            <input
-              type="text"
-              placeholder="Your Name *"
-              value={candidateName}
-              onChange={(e) => setCandidateName(e.target.value)}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-            />
-            <input
-              type="email"
-              placeholder="Your Email (optional)"
-              value={candidateEmail}
-              onChange={(e) => setCandidateEmail(e.target.value)}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-            />
+            <div>
+              <input
+                type="text"
+                placeholder="Your Full Name *"
+                value={candidateName}
+                onChange={(e) => setCandidateName(e.target.value)}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                required
+              />
+            </div>
+            <div>
+              <input
+                type="email"
+                placeholder="Your Email *"
+                value={candidateEmail}
+                onChange={(e) => setCandidateEmail(e.target.value)}
+                onBlur={checkIfAlreadyTaken}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                required
+              />
+            </div>
             <button
               onClick={handleStartQuiz}
               className="w-full bg-indigo-600 text-white py-3 rounded-lg font-semibold hover:bg-indigo-700 transition-colors"
@@ -405,12 +463,11 @@ export default function QuizApp() {
             </div>
           </div>
 
-          <button
-            onClick={() => window.location.reload()}
-            className="w-full mt-6 bg-indigo-600 text-white py-3 rounded-lg font-semibold hover:bg-indigo-700 transition-colors"
-          >
-            Take Quiz Again
-          </button>
+          <div className="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <p className="text-sm text-yellow-800 text-center">
+              <strong>Note:</strong> You cannot retake this quiz with the same email address.
+            </p>
+          </div>
 
           <p className="text-xs text-gray-500 text-center mt-4">
             Your results have been saved. Thank you for participating!
@@ -423,3 +480,4 @@ export default function QuizApp() {
     </script>
 </body>
 </html>
+
