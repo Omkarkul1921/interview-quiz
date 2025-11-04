@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interview Quiz</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body>
+    <div id="root"></div>
+    <script type="text/babel">
+       import React, { useState, useEffect } from 'react';
+import { Clock, CheckCircle, XCircle, Award } from 'lucide-react';
+
+// ========================================
+// EDIT YOUR QUESTIONS HERE
+// ========================================
+const QUIZ_CONFIG = {
+  title: "Technical Interview Quiz",
+  timePerQuestion: 20, // seconds
+  passingScore: 70, // percentage
+  questions: [
+    {
+      id: 1,
+      question: "What does HTML stand for?",
+      options: [
+        "Hyper Text Markup Language",
+        "High Tech Modern Language",
+        "Home Tool Markup Language",
+        "Hyperlinks and Text Markup Language"
+      ],
+      correctAnswer: 0 // index of correct option (0-3)
+    },
+    {
+      id: 2,
+      question: "Which programming language is known as the 'language of the web'?",
+      options: ["Python", "JavaScript", "Java", "C++"],
+      correctAnswer: 1
+    },
+    {
+      id: 3,
+      question: "What does CSS stand for?",
+      options: [
+        "Computer Style Sheets",
+        "Cascading Style Sheets",
+        "Creative Style Sheets",
+        "Colorful Style Sheets"
+      ],
+      correctAnswer: 1
+    },
+    {
+      id: 4,
+      question: "Which data structure uses LIFO (Last In First Out)?",
+      options: ["Queue", "Stack", "Array", "Tree"],
+      correctAnswer: 1
+    },
+    {
+      id: 5,
+      question: "What is the time complexity of binary search?",
+      options: ["O(n)", "O(log n)", "O(n²)", "O(1)"],
+      correctAnswer: 1
+    },
+    // Add more questions here (up to 50)
+    {
+      id: 6,
+      question: "Which HTTP method is used to retrieve data?",
+      options: ["POST", "PUT", "GET", "DELETE"],
+      correctAnswer: 2
+    },
+    {
+      id: 7,
+      question: "What does API stand for?",
+      options: [
+        "Application Programming Interface",
+        "Advanced Programming Interface",
+        "Application Process Integration",
+        "Automated Programming Interface"
+      ],
+      correctAnswer: 0
+    },
+    {
+      id: 8,
+      question: "Which is NOT a JavaScript framework?",
+      options: ["React", "Angular", "Django", "Vue"],
+      correctAnswer: 2
+    },
+    {
+      id: 9,
+      question: "What is the purpose of Git?",
+      options: [
+        "Database management",
+        "Version control",
+        "Web hosting",
+        "Code compilation"
+      ],
+      correctAnswer: 1
+    },
+    {
+      id: 10,
+      question: "Which SQL command is used to retrieve data?",
+      options: ["GET", "SELECT", "FETCH", "RETRIEVE"],
+      correctAnswer: 1
+    }
+  ]
+};
+
+// ========================================
+// MAIN APP COMPONENT
+// ========================================
+export default function QuizApp() {
+  const [quizState, setQuizState] = useState('start'); // start, quiz, results
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [timeLeft, setTimeLeft] = useState(QUIZ_CONFIG.timePerQuestion);
+  const [answers, setAnswers] = useState({});
+  const [candidateName, setCandidateName] = useState('');
+  const [candidateEmail, setCandidateEmail] = useState('');
+  const [startTime, setStartTime] = useState(null);
+
+  const currentQuestion = QUIZ_CONFIG.questions[currentQuestionIndex];
+  const totalQuestions = QUIZ_CONFIG.questions.length;
+  const progress = ((currentQuestionIndex + 1) / totalQuestions) * 100;
+
+  // Timer effect
+  useEffect(() => {
+    if (quizState !== 'quiz') return;
+
+    const timer = setInterval(() => {
+      setTimeLeft(prev => {
+        if (prev <= 1) {
+          handleNextQuestion();
+          return QUIZ_CONFIG.timePerQuestion;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [quizState, currentQuestionIndex]);
+
+  const handleStartQuiz = () => {
+    if (!candidateName.trim()) {
+      alert('Please enter your name');
+      return;
+    }
+    setStartTime(new Date());
+    setQuizState('quiz');
+  };
+
+  const handleAnswer = (optionIndex) => {
+    setAnswers({
+      ...answers,
+      [currentQuestion.id]: optionIndex
+    });
+  };
+
+  const handleNextQuestion = () => {
+    if (currentQuestionIndex < totalQuestions - 1) {
+      setCurrentQuestionIndex(prev => prev + 1);
+      setTimeLeft(QUIZ_CONFIG.timePerQuestion);
+    } else {
+      finishQuiz();
+    }
+  };
+
+  const finishQuiz = () => {
+    setQuizState('results');
+    saveResults();
+  };
+
+  const calculateResults = () => {
+    let correct = 0;
+    QUIZ_CONFIG.questions.forEach(q => {
+      if (answers[q.id] === q.correctAnswer) {
+        correct++;
+      }
+    });
+    const percentage = Math.round((correct / totalQuestions) * 100);
+    return { correct, total: totalQuestions, percentage };
+  };
+
+  const saveResults = () => {
+    const results = calculateResults();
+    const endTime = new Date();
+    const timeTaken = Math.round((endTime - startTime) / 1000);
+    
+    const resultData = {
+      name: candidateName,
+      email: candidateEmail,
+      score: results.percentage,
+      correct: results.correct,
+      total: results.total,
+      timeTaken: timeTaken,
+      timestamp: endTime.toISOString(),
+      answers: answers
+    };
+
+    // Save to localStorage for tracking
+    const allResults = JSON.parse(localStorage.getItem('quizResults') || '[]');
+    allResults.push(resultData);
+    localStorage.setItem('quizResults', JSON.stringify(allResults));
+
+    // Log to console (you can send this to a server)
+    console.log('Quiz Result:', resultData);
+  };
+
+  // Start Screen
+  if (quizState === 'start') {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full">
+          <div className="text-center mb-8">
+            <Award className="w-16 h-16 text-indigo-600 mx-auto mb-4" />
+            <h1 className="text-3xl font-bold text-gray-800 mb-2">
+              {QUIZ_CONFIG.title}
+            </h1>
+            <p className="text-gray-600">Test your knowledge with our quiz</p>
+          </div>
+
+          <div className="space-y-4 mb-6">
+            <div className="bg-indigo-50 p-4 rounded-lg">
+              <h3 className="font-semibold text-indigo-900 mb-2">Quiz Rules:</h3>
+              <ul className="text-sm text-indigo-700 space-y-1">
+                <li>• {totalQuestions} questions total</li>
+                <li>• {QUIZ_CONFIG.timePerQuestion} seconds per question</li>
+                <li>• Auto-advance when time expires</li>
+                <li>• No going back to previous questions</li>
+                <li>• Passing score: {QUIZ_CONFIG.passingScore}%</li>
+              </ul>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <input
+              type="text"
+              placeholder="Your Name *"
+              value={candidateName}
+              onChange={(e) => setCandidateName(e.target.value)}
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+            />
+            <input
+              type="email"
+              placeholder="Your Email (optional)"
+              value={candidateEmail}
+              onChange={(e) => setCandidateEmail(e.target.value)}
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+            />
+            <button
+              onClick={handleStartQuiz}
+              className="w-full bg-indigo-600 text-white py-3 rounded-lg font-semibold hover:bg-indigo-700 transition-colors"
+            >
+              Start Quiz
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Quiz Screen
+  if (quizState === 'quiz') {
+    const isAnswered = answers[currentQuestion.id] !== undefined;
+    
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
+        <div className="max-w-3xl mx-auto">
+          {/* Header */}
+          <div className="bg-white rounded-t-2xl shadow-lg p-6">
+            <div className="flex justify-between items-center mb-4">
+              <div className="text-sm text-gray-600">
+                Question {currentQuestionIndex + 1} of {totalQuestions}
+              </div>
+              <div className={`flex items-center gap-2 font-bold text-lg ${
+                timeLeft <= 5 ? 'text-red-600 animate-pulse' : 'text-indigo-600'
+              }`}>
+                <Clock className="w-5 h-5" />
+                {timeLeft}s
+              </div>
+            </div>
+            
+            {/* Progress bar */}
+            <div className="w-full bg-gray-200 rounded-full h-2">
+              <div 
+                className="bg-indigo-600 h-2 rounded-full transition-all duration-300"
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+          </div>
+
+          {/* Question */}
+          <div className="bg-white shadow-lg p-8">
+            <h2 className="text-2xl font-bold text-gray-800 mb-6">
+              {currentQuestion.question}
+            </h2>
+
+            <div className="space-y-3">
+              {currentQuestion.options.map((option, index) => (
+                <button
+                  key={index}
+                  onClick={() => handleAnswer(index)}
+                  className={`w-full text-left p-4 rounded-lg border-2 transition-all ${
+                    answers[currentQuestion.id] === index
+                      ? 'border-indigo-600 bg-indigo-50'
+                      : 'border-gray-300 hover:border-indigo-300 bg-white'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${
+                      answers[currentQuestion.id] === index
+                        ? 'border-indigo-600 bg-indigo-600'
+                        : 'border-gray-400'
+                    }`}>
+                      {answers[currentQuestion.id] === index && (
+                        <div className="w-3 h-3 bg-white rounded-full" />
+                      )}
+                    </div>
+                    <span className="text-gray-800">{option}</span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div className="bg-white rounded-b-2xl shadow-lg p-6">
+            <button
+              onClick={handleNextQuestion}
+              disabled={!isAnswered}
+              className={`w-full py-3 rounded-lg font-semibold transition-colors ${
+                isAnswered
+                  ? 'bg-indigo-600 text-white hover:bg-indigo-700'
+                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+              }`}
+            >
+              {currentQuestionIndex < totalQuestions - 1 ? 'Next Question' : 'Finish Quiz'}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Results Screen
+  if (quizState === 'results') {
+    const results = calculateResults();
+    const passed = results.percentage >= QUIZ_CONFIG.passingScore;
+
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-2xl w-full">
+          <div className="text-center mb-8">
+            {passed ? (
+              <CheckCircle className="w-20 h-20 text-green-500 mx-auto mb-4" />
+            ) : (
+              <XCircle className="w-20 h-20 text-red-500 mx-auto mb-4" />
+            )}
+            <h1 className="text-3xl font-bold text-gray-800 mb-2">
+              {passed ? 'Congratulations!' : 'Quiz Complete'}
+            </h1>
+            <p className="text-gray-600">
+              {candidateName}, here are your results
+            </p>
+          </div>
+
+          <div className="bg-gradient-to-r from-indigo-50 to-blue-50 rounded-xl p-6 mb-6">
+            <div className="text-center mb-4">
+              <div className="text-6xl font-bold text-indigo-600 mb-2">
+                {results.percentage}%
+              </div>
+              <div className="text-gray-600">Final Score</div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 text-center">
+              <div className="bg-white rounded-lg p-4">
+                <div className="text-2xl font-bold text-green-600">
+                  {results.correct}
+                </div>
+                <div className="text-sm text-gray-600">Correct</div>
+              </div>
+              <div className="bg-white rounded-lg p-4">
+                <div className="text-2xl font-bold text-red-600">
+                  {results.total - results.correct}
+                </div>
+                <div className="text-sm text-gray-600">Incorrect</div>
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <div className="flex justify-between items-center p-4 bg-gray-50 rounded-lg">
+              <span className="text-gray-600">Total Questions</span>
+              <span className="font-semibold">{results.total}</span>
+            </div>
+            <div className="flex justify-between items-center p-4 bg-gray-50 rounded-lg">
+              <span className="text-gray-600">Passing Score</span>
+              <span className="font-semibold">{QUIZ_CONFIG.passingScore}%</span>
+            </div>
+            <div className="flex justify-between items-center p-4 bg-gray-50 rounded-lg">
+              <span className="text-gray-600">Status</span>
+              <span className={`font-semibold ${passed ? 'text-green-600' : 'text-red-600'}`}>
+                {passed ? 'PASSED' : 'NOT PASSED'}
+              </span>
+            </div>
+          </div>
+
+          <button
+            onClick={() => window.location.reload()}
+            className="w-full mt-6 bg-indigo-600 text-white py-3 rounded-lg font-semibold hover:bg-indigo-700 transition-colors"
+          >
+            Take Quiz Again
+          </button>
+
+          <p className="text-xs text-gray-500 text-center mt-4">
+            Your results have been saved. Thank you for participating!
+          </p>
+        </div>
+      </div>
+    );
+  }
+}
+    </script>
+</body>
+</html>
